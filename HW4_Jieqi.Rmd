@@ -1,0 +1,22 @@
+---
+title: "HW4"
+author: "Jieqi Tu"
+date: "11/8/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Question 1
+Download "nerve frings" data from http://www:stat:cmu:edu/~larry/all-of-�statistics/index:html.
+Construct a 95% normal, pivotal and percentile confidence intervals for estimating the skewness and the median of the nerve data by bootstrapping.
+```{r import data question1}
+# Import dataset
+
+```
+
