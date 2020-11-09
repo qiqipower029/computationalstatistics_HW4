@@ -17,6 +17,122 @@ Download "nerve frings" data from http://www:stat:cmu:edu/~larry/all-of-�stati
 Construct a 95% normal, pivotal and percentile confidence intervals for estimating the skewness and the median of the nerve data by bootstrapping.
 ```{r import data question1}
 # Import dataset
+nerve = read.table("nerve.dat", fill = T)
+nerve = unlist(nerve) %>% na.omit() %>% as.numeric()
+# Examine the sample size
+sample_size = length(nerve); sample_size
+```
 
+We have 799 observed data in nerve dataset.
+
+```{r check skewness}
+# Define the function of skewness
+skew.function = function(x) {
+  mean((x - mean(x))^3)/mean((x - mean(x))^2)^(3/2)
+}
+
+# Calculate the skewness point estimate for nerve
+nerve.skew = skew.function(nerve); nerve.skew
+
+# Check the median of nerve
+nerve.median = median(nerve); nerve.median
+
+# Bootstrap
+set.seed(1029)
+n.boot = 1000
+skewness = numeric(n.boot)
+medians = numeric(n.boot)
+for (i in 1:n.boot) {
+  sample.data = sample(nerve, size = sample_size, replace = T)
+  skewness[i] = skew.function(sample.data)
+  medians[i] = median(sample.data)
+}
+par(mfrow = c(1, 2), pty = "s")
+plot(density(skewness), main = "density of skewness")
+plot(density(medians), main = "density of medians")
+```
+
+We can see that the skewness is relatively bell shaped, but medians have three peaks in the plot of density. Now we want to contruct the 95% confidence intervals for them.
+
+
+```{r CI calculation}
+# Calculate CI for skewness
+skewness.ci.normal = c(
+  low = nerve.skew + qnorm(0.025)*sd(skewness),
+  high = nerve.skew + qnorm(0.975)*sd(skewness),
+  length = qnorm(0.975)*sd(skewness) - qnorm(0.025)*sd(skewness)
+)
+
+skewness.ci.pivot = c(
+  low = 2*nerve.skew - quantile(skewness, 0.975),
+  high = 2*nerve.skew - quantile(skewness, 0.025),
+  length = -quantile(skewness, 0.025) + quantile(skewness, 0.975)
+)
+
+skewness.ci.percentile = c(
+  low = quantile(skewness, 0.025),
+  high = quantile(skewness, 0.975),
+  length = quantile(skewness, 0.975) - quantile(skewness, 0.025)
+)
+rbind(skewness.ci.normal, skewness.ci.pivot, skewness.ci.percentile) %>% as.data.frame() %>% knitr::kable()
+
+# Calculate CI for medians
+median.ci.normal = c(
+  low = nerve.median + qnorm(0.025)*sd(medians),
+  high = nerve.median + qnorm(0.975)*sd(medians),
+  length = qnorm(0.975)*sd(medians) - qnorm(0.025)*sd(medians)
+)
+median.ci.pivot = c(
+  low = 2*nerve.median - quantile(medians, 0.975),
+  high = 2*nerve.median - quantile(medians, 0.025),
+  length = -quantile(medians, 0.025) + quantile(medians, 0.975)
+)
+
+median.ci.percentile = c(
+  low = quantile(medians, 0.025),
+  high = quantile(medians, 0.975),
+  length = quantile(medians, 0.975) - quantile(medians, 0.025)
+)
+rbind(median.ci.normal, median.ci.pivot, median.ci.percentile) %>% as.data.frame() %>% knitr::kable()
+
+```
+
+## Question 2
+```{r question 2}
+# Import data
+treatments = data.frame(placebo = c( 9243,  9671, 11792, 13357,  9055,  6290, 12412, 18806),
+                            old = c(17649, 12013, 19979, 21816, 13850,  9806, 17208, 29044),
+                            new = c(16449, 14614, 17274, 23798, 12560, 10157, 16570, 26325))
+
+treatments$`old-placebo` = treatments$old - treatments$placebo
+treatments$`new-old` = treatments$new - treatments$old
+treatments %>% knitr::kable()
+
+sample.size = nrow(treatments)
+
+# Define function of bioequivalence
+theta = function(y, z) {
+  mean(y)/mean(z)
+}
+theta_abs = function(y, z) {
+  abs(mean(y)/mean(z))
+}
+z = treatments$`old-placebo`
+y = treatments$`new-old`
+
+theta.estimate = theta_abs(y, z); theta.estimate
+```
+
+Construct 95% CI for bioequivalence using bootstrap.
+```{r ci calculation for theta}
+# Bootstrap
+set.seed(1029)
+n.boot = 1000
+theta_boot = numeric(n.boot)
+theta_abs_boot = numeric(n.boot)
+for (i in 1:n.boot) {
+  row_n = sample(1:sample.size, size = sample_size, replace = T)
+  theta_boot[i] = theta()
+}
 ```
 
