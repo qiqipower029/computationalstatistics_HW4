@@ -131,8 +131,119 @@ n.boot = 1000
 theta_boot = numeric(n.boot)
 theta_abs_boot = numeric(n.boot)
 for (i in 1:n.boot) {
-  row_n = sample(1:sample.size, size = sample_size, replace = T)
-  theta_boot[i] = theta()
+  row_n = sample(1:sample.size, size = sample.size, replace = T)
+  theta_boot[i] = theta(treatments$`new-old`[row_n], treatments$`old-placebo`[row_n])
+  theta_abs_boot[i] = theta_abs(treatments$`new-old`[row_n], treatments$`old-placebo`[row_n])
 }
+
+# Bootstrap results for absolute value of theta
+summary(unlist(theta_abs_boot))
+sd(unlist(theta_abs_boot))
+
+# Bootstrap results for theta
+summary(unlist(theta_boot))
+sd(unlist(theta_boot))
+
+# Construct 95% CI
+theta_abs_boot = unlist(theta_abs_boot)
+theta_boot = unlist(theta_boot)
+# (1) Normal method
+CI.theta.normal = c(
+  lower = theta.estimate + qnorm(0.025)*sd(theta_boot), 
+  upper = theta.estimate + qnorm(0.975)*sd(theta_boot),
+  length_of_CI = qnorm(0.975)*sd(theta_boot)-qnorm(0.025)*sd(theta_boot)
+)
+
+# (2) Pivotal method
+CI.theta.pivot = c(
+  lower = 2*theta.estimate - quantile(theta_boot, 0.975), 
+  upper = 2*theta.estimate - quantile(theta_boot, 0.025),
+  length_of_CI = - quantile(theta_boot, 0.025) + quantile(theta_boot, 0.975)
+)
+
+# (3) Percentile method
+CI.theta.pencentile = c(
+  lower = quantile(theta_abs_boot, 0.025), 
+  upper = quantile(theta_abs_boot, 0.975),
+  length_of_CI = quantile(theta_abs_boot, 0.975)- quantile(theta_abs_boot, 0.025)
+)
+
+# Check the results
+rbind(CI.theta.normal, CI.theta.pivot, CI.theta.pencentile)
 ```
 
+## Question 3
+```{r question 3}
+# Create data from Normal distribution with mean 5 and sd 1
+set.seed(20201111)
+x = rnorm(100, mean = 5, sd = 1)
+n = length(x)
+
+# Define the function for theta
+theta = function(x) {exp(mean(x))}
+
+# Point estimation
+theta.hat = theta(x); theta.hat
+
+# Bootstrap
+n.sim = 1000
+theta.boot = xbar.boot = numeric(n.sim)
+for (i in 1:n.sim) {
+  x.sample = sample(x, size = n, replace = T)
+  theta.boot[i] = theta(x.sample)
+  xbar.boot[i] = mean(x.sample)
+}
+
+# (1) normal method
+CI.normal.theta = c(
+  lower = theta.hat + qnorm(0.025)*sd(theta.boot), 
+  upper = theta.hat + qnorm(0.975)*sd(theta.boot),
+  length_of_CI = qnorm(0.975)*sd(theta.boot)-qnorm(0.025)*sd(theta.boot)
+)
+
+# (2) pivotal method
+CI.pivot.thata = c(
+  lower = 2*theta.hat - quantile(theta.boot, 0.975), 
+  upper = 2*theta.hat - quantile(theta.boot, 0.025),
+  length_of_CI = - quantile(theta.boot, 0.025) + quantile(theta.boot, 0.975)
+)
+
+# (3) percentile method
+CI.percent.theta = c(
+  lower = quantile(theta.boot, 0.025), 
+  upper = quantile(theta.boot, 0.975),
+  length_of_CI = quantile(theta.boot, 0.975)- quantile(theta.boot, 0.025)
+)
+
+# Check the results
+rbind(CI.normal.theta, CI.pivot.thata, CI.percent.theta)
+
+theta.boot = theta.boot %>% as.data.frame()
+colnames(theta.boot) = c("theta.boot")
+
+# Generate true sampling distribution
+theta.true = numeric(n.sim)
+for (i in 1:n.sim) {
+  true.sample = rnorm(100, 5, 1)
+  theta.true[i] = theta(true.sample)
+}
+
+theta.true = theta.true %>% as.data.frame()
+colnames(theta.true) = c("theta.true")
+
+library(ggpubr)
+boot.plot = 
+theta.boot %>% 
+  ggplot(aes(x = theta.boot)) + geom_histogram() + theme_bw() + geom_vline(xintercept = exp(5), linetype = "dashed", color = "blue")
+
+
+true.plot = theta.true %>% 
+  ggplot(aes(x = theta.true)) + geom_histogram() + theme_bw() + geom_vline(xintercept = exp(5), linetype = "dashed", color = "blue")
+
+ggarrange(boot.plot, true.plot,
+          labels = c("Bootstrap", "True Sampling"))
+```
+
+From the histograms, we could see that the distribution of both true sampling and boostrap have the similar mean (close to $e^5$, represented by the blue dashed lines). The distributions look very close to each other. This indicates that the bootstrap distribution covers the majority of true sampling distribution, and it performs very well.
+
+## Question 4
