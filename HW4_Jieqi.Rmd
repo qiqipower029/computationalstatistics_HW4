@@ -247,3 +247,175 @@ ggarrange(boot.plot, true.plot,
 From the histograms, we could see that the distribution of both true sampling and boostrap have the similar mean (close to $e^5$, represented by the blue dashed lines). The distributions look very close to each other. This indicates that the bootstrap distribution covers the majority of true sampling distribution, and it performs very well.
 
 ## Question 4
+```{r question 4}
+# Generate the sample data
+set.seed(1029)
+theta = 1
+x = runif(50, 0, theta)
+n = length(x)
+
+# point estimate
+theta.max = max(x); theta.max
+
+# bootstrap
+n.sim = 1000
+max.theta = numeric(length = n.sim)
+for (i in 1:n.sim) {
+  x.new = sample(x, size = n, replace = T)
+  max.theta[i] = max(x.new)
+}
+
+# 95% bootstrap confidence interval for theta hat
+# (1) normal method
+CI.normal.max = c(
+  lower = theta.max + qnorm(0.025)*sd(max.theta),
+  upper = theta.max + qnorm(0.975)*sd(max.theta),
+  length_of_CI = qnorm(0.975)*sd(max.theta)-qnorm(0.025)*sd(max.theta)
+)
+
+# (2) pivital method
+CI.pivot.max = c(
+  lower = 2*theta.max - quantile(max.theta, 0.975), 
+  upper = 2*theta.max - quantile(max.theta, 0.025),
+  length_of_CI = - quantile(max.theta, 0.025) + quantile(max.theta, 0.975)
+)
+
+# (3) percentile method
+CI.percent.max = c(
+  lower = quantile(max.theta, 0.025), 
+  upper = quantile(max.theta, 0.975),
+  length_of_CI = quantile(max.theta, 0.975)- quantile(max.theta, 0.025)
+)
+
+# Check results
+rbind(CI.normal.max, CI.pivot.max, CI.percent.max)
+```
+
+We now want to check the distribution of $\hat\theta$.
+```{r question4 distribution}
+# bootstrap distribution of thetahat
+theta.boot = max.theta %>% as.data.frame()
+colnames(theta.boot) = c("theta.hat")
+
+distribution.boot = 
+  theta.boot %>% 
+  ggplot(aes(x = theta.hat)) + geom_density() + theme_bw()
+
+# generate true sampling distribution
+theta.true = numeric(n.sim)
+set.seed(1029)
+for (i in 1:n.sim) {
+  newsample = runif(50, 0, theta)
+  theta.true[i] = max(newsample)
+}
+
+theta.true = theta.true %>% as.data.frame()
+colnames(theta.true) = c("theta.hat")
+
+distribution.true = 
+  theta.true %>% 
+  ggplot(aes(x = theta.hat)) + geom_density() + theme_bw()
+
+ggarrange(distribution.true,
+          distribution.boot,
+          labels = c("True Sampling",
+                     "Bootstrap Distribution"))
+```
+
+From the plots, we could see that bootstrap resampling failed to capture the distribution of true sampling.
+It is because the true sampling distribution has an extremely heavy tail.
+Heavy tail distributions often cause problems for asymptotic and bootstrap inference. 
+Therefore, we cannot use bootstrap method when the resampling distribution has extremely heavy tails.
+However, according to Arcones and Gine (1989), we can solve this problem by using m out n bootstrap, which is performed below. It also works well when we sample without replacement.
+```{r q4 m out of n}
+# define function
+m_outof_n_bootstrap = function(n=50, m=10, replace = T){
+set.seed(1029) 
+theta = 1
+x = runif(n, 0, theta)
+# Bootstrap (max)
+B = 1000
+B.max = numeric(length = B) 
+
+for (i in 1:B) {
+x.new = sample(x, size = m, replace = replace)
+B.max[i] = max(x.new)}
+# percentile method
+CI.percent.max = c(lower = quantile(B.max, 0.025), upper = quantile(B.max, 0.975),
+length_of_CI = quantile(B.max, 0.975)- quantile(B.max, 0.025))
+return(CI.percent.max)
+}
+
+m_outof_n_bootstrap(n = 50, m = 10, replace = T)
+m_outof_n_bootstrap(n = 50, m = 10, replace = F)
+m_outof_n_bootstrap(n = 500, m = 10, replace = T)
+m_outof_n_bootstrap(n = 500, m = 10, replace = F)
+```
+
+## Question 5
+```{r question 5}
+# Import data
+scores = data.frame( GPA = c(3.39, 3.30, 2.81, 3.03, 
+                             3.44, 3.07, 3.00, 3.43, 
+                             3.36, 3.13, 3.12, 2.74,
+                             2.76, 2.88, 3.96), 
+                     LSAT = c(576, 635, 558, 578, 
+                              666, 580, 555, 661, 
+                              651, 605, 653, 575, 
+                              545, 572, 594))
+
+# Sample size
+n = nrow(scores)
+
+# point estimate
+cor.hat = cor(scores$GPA, scores$LSAT)
+cor.hat
+
+# Bootstrap
+set.seed(1029)
+n.sim = c(100, 1000, 10000)
+cor.boot_100 = numeric(n.sim[1])
+cor.boot_1000 = numeric(n.sim[2])
+cor.boot_10000 = numeric(n.sim[3])
+
+for (i in 1:n.sim[1]) {
+  idx = sample(1:n, size = n, replace = T)
+  cor.boot_100[i] = cor(scores$GPA[idx], scores$LSAT[idx])
+}
+
+for (i in 1:n.sim[2]) {
+  idx = sample(1:n, size = n, replace = T)
+  cor.boot_1000[i] = cor(scores$GPA[idx], scores$LSAT[idx])
+}
+
+for (i in 1:n.sim[3]) {
+  idx = sample(1:n, size = n, replace = T)
+  cor.boot_10000[i] = cor(scores$GPA[idx], scores$LSAT[idx])
+}
+
+plot(density(cor.boot_100))
+plot(density(cor.boot_1000))
+plot(density(cor.boot_10000))
+```
+
+Three bootstrap resampling distributions are similar. Then we want to check the confidence interval.
+```{r q5 CI}
+# (1) normal method
+CI.normal.cor = data.frame(n.sim = n.sim,
+                           lower = sapply(n.sim, function(b) cor.hat + qnorm(0.025)*sd(cor.boot_10000[1:b])), 
+                           upper = sapply(n.sim, function(b) cor.hat + qnorm(0.975)*sd(cor.boot_10000[1:b])))
+
+# (2) pivot method
+CI.pivot.cor = data.frame(n.sim = n.sim,
+                          lower = sapply(n.sim, function(b) 2*cor.hat - quantile(cor.boot_10000[1:b], 0.975)), 
+                          upper = sapply(n.sim, function(b) 2*cor.hat - quantile(cor.boot_10000[1:b], 0.025)))
+
+# (3) pencentile method
+CI.percent.cor = data.frame(n.sim = n.sim,
+                            lower = sapply(n.sim, function(b) quantile(cor.boot_10000[1:b], 0.025)), 
+                            upper = sapply(n.sim, function(b) quantile(cor.boot_10000[1:b], 0.975)))
+```
+
+From the results we could see that, small sample size leads to broad confidence interval. However, we want to narrow down the confidence interval. 
+We found that when the bootstrap iteration times increase, most 95% confidence intervals get narrower.
+But still, the interval is still very wide. Since the GPA and LSAT scores are not highly correlated, we might conclude that we cannot consider a student just by GPA or LSAT. We need to combine the two scores to have a more comprehensive view for one student.
